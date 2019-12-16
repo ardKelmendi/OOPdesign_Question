@@ -4,7 +4,7 @@
  * I want to ask if my design is "nice" for this particular made up example
  * */
 
-abstract class Person
+sealed abstract class Person // [K] adding sealed to make sure we have all the definitions of Person in this file
 
 class FreeMember extends Person {
   /* ... */
@@ -23,31 +23,37 @@ class PremiumMember extends Person {
   def changeUsername(name: String): Unit = { m_Username = name }
 }
 
-trait Observer {
+trait Dispatcher { // [K] This isn't an observer, this is a dispatcher
 
   /* intuitively i wrote this one, however I cant make it work  */
-  def _change(clazz: PremiumMember)(property: Symbol, value: Any) : Unit
-
+  def _change/*(member: PremiumMember)*/(property: Symbol, value: Any) : Unit // [K] we generally leave the word "clazz" to refer to the Class object, see below why i removed it
 
   /* I dont like that it takes a class as a parameter
    *  Ideally I wouldn't even need to pass the class as a parameter at all
    *  however I am uncertain how else to approach this*/
-  def change(clazz: PremiumMember, property: Symbol, value: Any) : Unit
+  def change(/*member: PremiumMember, */property: Symbol, value: Any) : Unit
 
+  // [K] An observer generally will have a list of objects to which it sends an update. So instead of having a (member: PremiumMember) argument,
+  // you could have a list of members in the class:
+  val members: List[PremiumMember]
 }
 
-class ConcreteObserver extends Observer{
-  def change(clazz: PremiumMember, property: Symbol, value: Any) : Unit = property match {
-    case Symbol("changeCredit")   => clazz.changeCredit(value.asInstanceOf[Int])
-    case Symbol("changeUsername") => clazz.changeUsername(value.asInstanceOf[String])
-  }
+class ConcreteDispatcher(override val members: List[PremiumMember]) extends Dispatcher { // This is
+  def change/*(member: PremiumMember,*/ (property: Symbol, value: Any) : Unit =
+    members foreach { member =>
+      property match {
+        case 'changeCredit => member.changeCredit(value.asInstanceOf[Int])
+        case 'changeUsername => member.changeUsername(value.asInstanceOf[String])
+      }
+    }
 
-
-  def _change(clazz: PremiumMember)(property: Symbol, value: Any) : Unit = property match {
-    case Symbol("changeCredit")   => clazz.changeCredit(value.asInstanceOf[Int])
-    case Symbol("changeUsername") => clazz.changeUsername(value.asInstanceOf[String])
-  }
-
+  def _change/*(member: PremiumMember)*/(property: Symbol, value: Any) : Unit =
+    members foreach { member =>
+      property match {
+        case 'changeCredit => member.changeCredit(value.asInstanceOf[Int])
+        case 'changeUsername => member.changeUsername(value.asInstanceOf[String])
+      }
+    }
 }
 
 object Main extends App {
@@ -56,10 +62,10 @@ object Main extends App {
   val member1 = new PremiumMember
 
   // let there be an Observer
-  val changer = new ConcreteObserver
+  val changer = new ConcreteDispatcher(List(member1))
 
   // lets assume the member is buying more Virtual credit
-  val property = Symbol("changeCredit")
+  val property = 'changeCredit
 
   // lets assume he bought 500 Virtual credit
   val new_credit = 500
@@ -67,7 +73,7 @@ object Main extends App {
   println("Credit before observer: " + member1.m_credit) // before
 
   //Lets update his credit with the observer
-  val toChange = changer change(member1, property, new_credit)
+  val toChange = changer.change(property, new_credit)
   println("Credit after observer: " + member1.m_credit) // after
 
 
@@ -81,10 +87,12 @@ object Main extends App {
   * without needing to specify which member
   */
 
- // val member1_observer = changer _change(member1) _
+ //val member1_observer = changer (_change _)
 
   /* later on if the member adds more credit I would just member1_observer.apply()
   * However I think I am mixing up stuff here */
 
-  //member1_observer.apply(property, new_credit)
+  changer._change(property, new_credit)
 }
+
+// [K] I am really confused what it is that you want to happen here though. Let me try to re-write some of this.
