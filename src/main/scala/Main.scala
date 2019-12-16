@@ -11,15 +11,22 @@ class FreeMember extends Person {
 }
 
 /* Some class representing a premium member who has credit */
-class PremiumMember(dispatcher: Dispatcher) extends Person {
-  val m_Id: Int = 0
-  var m_credit: Int = 100
-  var m_Username: String = ""
+class PremiumMember extends Person {
+  protected val m_Id: Int = 0
+  protected var m_credit: Int = 100
+  protected var m_Username: String = ""
 
-  def changeCredit(amount: Int): Unit = { m_credit += amount; dispatcher.change(m_credit) } // When something changes in the data, we do dispatch
+  def changeCredit(amount: Int): Unit = { m_credit += amount }
 
-  def changeUsername(name: String): Unit = { m_Username = name; dispatcher.change(name) }
+  def changeUsername(name: String): Unit = { m_Username = name }
 }
+
+class ObservableMember(actualMemeber: PremiumMember, dispatcher: Dispatcher) extends PremiumMember { // This is a wrapper class that does the dispatch, so as not to mess with the PremiumMember class (Decorator pattern)
+  override def changeCredit(amount: Int): Unit = { actualMemeber.changeCredit(amount); dispatcher.change(m_credit) } // When something changes in the data, we do dispatch
+
+  override def changeUsername(name: String): Unit = { actualMemeber.changeUsername(name); dispatcher.change(name) }
+}
+
 
 trait Dispatcher { // [K] This isn't an observer, this is a dispatcher
   val listeners: List[Listener]
@@ -52,7 +59,7 @@ object Main extends App {
 
   val dispatcher = new ConcreteDispatcher(List(listener1))
 
-  val member1 = new PremiumMember(dispatcher)
+  val member1 = new ObservableMember(new PremiumMember, dispatcher)
 
   // lets assume the member is buying more Virtual credit
   val property = 'changeCredit
